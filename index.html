@@ -14,22 +14,78 @@
         .btn-edit { background: #45ade5; color: white; border: none; font-size: 11px; font-weight: 700; border-radius: 50px; padding: 5px 15px; margin-right: 5px; }
         .btn-delete { background: #ff4b4b; color: white; border: none; font-size: 11px; font-weight: 700; border-radius: 50px; padding: 5px 15px; }
         .badge-id { background: #f0f0f0; color: #999; }
+        .config-card { background: #fbfbfb; border: 1px solid #eee; border-radius: 15px; padding: 20px; margin-bottom: 20px; height: 100%; }
+        .config-title { font-family: 'Playfair Display', serif; font-size: 16px; color: #333; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .list-group-item { border-radius: 10px !important; margin-bottom: 5px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 13px;}
     </style>
 </head>
 <body>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Gestão de Avaliações</h2>
+        <h2>Painel de Controle Duckling</h2>
         <span id="status-auth" class="badge bg-success">Painel Online</span>
     </div>
-    
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="config-card">
+                <div class="config-title">1. FAIXA FIXA (Topo)</div>
+                <label class="form-label small fw-bold text-muted">TEXTO DA PROMOÇÃO</label>
+                <div class="d-flex gap-2">
+                    <input type="text" id="promo-text-input" class="form-control" style="border-radius: 10px; font-size: 13px;">
+                    <button class="btn" style="background:#45ade5; color:white; font-weight:700; border-radius:10px; font-size: 11px;" onclick="salvarPromo()">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="config-card">
+                <div class="config-title">2. CARROSSEL DE AVISOS</div>
+                <div class="d-flex gap-2 mb-3">
+                    <input type="text" id="novo-aviso-input" class="form-control" placeholder="Nova frase..." style="border-radius: 10px; font-size: 13px;">
+                    <button class="btn" style="background:#111; color:white; font-weight:700; border-radius:10px; font-size: 11px;" onclick="adicionarAviso()">ADD</button>
+                </div>
+                <ul class="list-group" id="lista-avisos"></ul>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="config-card" style="border: 2px solid #45ade5;">
+                <div class="config-title">3. CUPOM MISTERIOSO (Popup)</div>
+                <label class="form-label small fw-bold text-muted">CÓDIGO QUE O CLIENTE RECEBE</label>
+                <div class="d-flex gap-2 mb-2">
+                    <input type="text" id="cupom-input" class="form-control" placeholder="Ex: DUCKLING10" style="border-radius: 10px; font-size: 13px; text-transform: uppercase;">
+                    <button class="btn" style="background:#1a6d6d; color:white; font-weight:700; border-radius:10px; font-size: 11px;" onclick="salvarCupom()">SALVAR</button>
+                </div>
+                <small class="text-muted" style="font-size: 9px;">O código acima será exibido no popup após o cadastro do e-mail.</small>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="mt-5">E-mails Capturados (Leads)</h2>
+    <div class="table-responsive config-card">
+        <table class="table table-hover table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Data de Cadastro</th>
+                    <th>E-mail do Cliente</th>
+                </tr>
+            </thead>
+            <tbody id="leads-list">
+                <tr><td colspan="2" class="text-center text-muted">Aguardando novos inscritos...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="mt-5">Gestão de Avaliações</h2>
     <div class="table-responsive">
         <table class="table table-hover">
             <thead class="table-light">
                 <tr>
                     <th>Data</th>
-                    <th>Produto</th> <th>Nome do Cliente</th>
+                    <th>Produto</th>
+                    <th>Nome do Cliente</th>
                     <th>Estrelas</th>
                     <th>Comentário</th>
                     <th class="text-end">Ações</th>
@@ -66,7 +122,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" style="background:#45ade5; border:none;" onclick="salvarEdicao()">SALVAR ALTERAÇÕES</button>
+                <button type="button" class="btn btn-primary" style="background:#45ade5; border:none;" onclick="salvarEdicao()">SALVAR</button>
             </div>
         </div>
     </div>
@@ -76,7 +132,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, updateDoc, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -95,6 +151,63 @@
 
     signInAnonymously(auth);
 
+    // 1. FAIXA TOPO
+    const promoRef = doc(db, "site_config", "faixa_topo");
+    getDoc(promoRef).then(s => { if (s.exists()) document.getElementById('promo-text-input').value = s.data().texto || ""; });
+    window.salvarPromo = async () => {
+        await setDoc(promoRef, { texto: document.getElementById('promo-text-input').value }, { merge: true });
+        alert("Atualizado!");
+    };
+
+    // 2. CARROSSEL AVISOS
+    const carrosselRef = doc(db, "site_config", "carrossel_avisos");
+    let avisosArray = [];
+    onSnapshot(carrosselRef, snap => {
+        const listaUI = document.getElementById('lista-avisos');
+        listaUI.innerHTML = "";
+        avisosArray = snap.exists() ? snap.data().textos || [] : [];
+        avisosArray.forEach((t, i) => {
+            listaUI.innerHTML += `<li class="list-group-item"><span>${t}</span><button class="btn btn-sm btn-danger py-0" onclick="removerAviso(${i})">X</button></li>`;
+        });
+    });
+    window.adicionarAviso = async () => {
+        const input = document.getElementById('novo-aviso-input');
+        if(input.value) await setDoc(carrosselRef, { textos: [...avisosArray, input.value] }, { merge: true });
+        input.value = "";
+    };
+    window.removerAviso = async i => {
+        await setDoc(carrosselRef, { textos: avisosArray.filter((_, idx) => idx !== i) }, { merge: true });
+    };
+
+    // 3. CUPOM MISTERIOSO
+    const cupomRef = doc(db, "site_config", "cupom_misterioso");
+    getDoc(cupomRef).then(snap => { if(snap.exists()) document.getElementById('cupom-input').value = snap.data().codigo || ""; });
+    window.salvarCupom = async () => {
+        const cod = document.getElementById('cupom-input').value.toUpperCase();
+        await setDoc(cupomRef, { codigo: cod }, { merge: true });
+        alert("Cupom salvo!");
+    };
+
+    // 4. LEADS (EMAILS)
+    onSnapshot(collection(db, "leads_cupom"), snap => {
+        const list = document.getElementById('leads-list');
+        list.innerHTML = "";
+        snap.docs.sort((a,b) => (b.data().data?.seconds || 0) - (a.data().data?.seconds || 0)).forEach(d => {
+            const date = d.data().data ? new Date(d.data().data.seconds * 1000).toLocaleString() : 'Agora';
+            list.innerHTML += `<tr><td><small>${date}</small></td><td><strong>${d.data().email}</strong></td></tr>`;
+        });
+    });
+
+    // 5. AVALIAÇÕES
+    onSnapshot(collection(db, "avaliacoes"), snap => {
+        const list = document.getElementById('admin-list');
+        list.innerHTML = "";
+        snap.docs.sort((a,b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0)).forEach(d => {
+            const data = d.data();
+            list.innerHTML += `<tr><td><small>${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleDateString() : 'Agora'}</small></td><td><b>${data.productName}</b></td><td>${data.name}</td><td><span class="star-gold">${data.stars} ★</span></td><td><small>${data.comment}</small></td><td class="text-end"><button class="btn btn-edit" onclick="abrirEditar('${d.id}','${data.name}',${data.stars},'${data.comment}')">EDITAR</button><button class="btn btn-delete" onclick="excluirAvaliacao('${d.id}')">X</button></td></tr>`;
+        });
+    });
+
     window.abrirEditar = (id, nome, estrelas, comentario) => {
         document.getElementById('edit-id').value = id;
         document.getElementById('edit-name').value = nome;
@@ -104,49 +217,11 @@
     };
 
     window.salvarEdicao = async () => {
-        const id = document.getElementById('edit-id').value;
-        const nome = document.getElementById('edit-name').value;
-        const estrelas = parseInt(document.getElementById('edit-stars').value);
-        const comentario = document.getElementById('edit-comment').value;
-        try {
-            await updateDoc(doc(db, "avaliacoes", id), { name: nome, stars: estrelas, comment: comentario });
-            editModal.hide();
-        } catch (e) { alert("Erro: " + e.message); }
+        await updateDoc(doc(db, "avaliacoes", document.getElementById('edit-id').value), { name: document.getElementById('edit-name').value, stars: parseInt(document.getElementById('edit-stars').value), comment: document.getElementById('edit-comment').value });
+        editModal.hide();
     };
 
-    window.excluirAvaliacao = async (id) => {
-        if(confirm("Excluir para sempre?")) await deleteDoc(doc(db, "avaliacoes", id));
-    };
-
-    onSnapshot(collection(db, "avaliacoes"), (snapshot) => {
-        const list = document.getElementById('admin-list');
-        list.innerHTML = "";
-
-        const sorted = snapshot.docs.sort((a, b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0));
-
-        sorted.forEach((d) => {
-            const data = d.data();
-            const date = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'Agora';
-            
-            const row = `
-                <tr>
-                    <td><small>${date}</small></td>
-                    <td>
-                        <div style="font-weight: 700; color: #111;">${data.productName || 'Produto Antigo'}</div>
-                        <small class="badge badge-id" style="font-size: 9px;">ID: ${data.productId}</small>
-                    </td>
-                    <td><strong>${data.name}</strong></td>
-                    <td><span class="star-gold">${data.stars} ★</span></td>
-                    <td><small>${data.comment || '-'}</small></td>
-                    <td class="text-end" style="white-space:nowrap;">
-                        <button class="btn btn-edit" onclick="abrirEditar('${d.id}', '${data.name}', '${data.stars}', '${data.comment || ''}')">EDITAR</button>
-                        <button class="btn btn-delete" onclick="excluirAvaliacao('${d.id}')">EXCLUIR</button>
-                    </td>
-                </tr>
-            `;
-            list.innerHTML += row;
-        });
-    });
+    window.excluirAvaliacao = async id => { if(confirm("Excluir?")) await deleteDoc(doc(db, "avaliacoes", id)); };
 </script>
 </body>
 </html>
